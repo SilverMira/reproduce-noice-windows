@@ -14,26 +14,45 @@ struct NeovimHandler {}
 #[async_trait]
 impl Handler for NeovimHandler {
     type Writer = Compat<tokio::process::ChildStdin>;
-
-    async fn handle_request(
-        &self,
-        name: String,
-        _args: Vec<Value>,
-        _neovim: Neovim<Compat<tokio::process::ChildStdin>>,
-    ) -> Result<Value, Value> {
-        match name.as_ref() {
-            "ping" => Ok(Value::from("pong")),
-            _ => unimplemented!(),
-        }
-    }
-
     async fn handle_notify(
         &self,
-        name: String,
+        _name: String,
         args: Vec<Value>,
         _neovim: Neovim<Compat<tokio::process::ChildStdin>>,
     ) {
-        println!("{}: {:?}", name, args);
+        for arg in args {
+            let arg_unwrapped = arg.as_array().unwrap();
+            let redraw_event = arg_unwrapped.get(0).unwrap().as_str().unwrap();
+            let redraw_event_args = &arg_unwrapped[1..];
+            if redraw_event == "cmdline_show" {
+                for event_arg in redraw_event_args {
+                    let event_arg_unwrapped = event_arg.as_array().unwrap();
+                    let content = event_arg_unwrapped.get(0).unwrap().as_array().unwrap();
+                    let pos = event_arg_unwrapped.get(1).unwrap().as_i64().unwrap();
+                    let firstc = event_arg_unwrapped.get(2).unwrap().as_str();
+                    let prompt = event_arg_unwrapped.get(3).unwrap().as_str().unwrap();
+                    let indent = event_arg_unwrapped.get(4).unwrap().as_i64().unwrap();
+                    let level = event_arg_unwrapped.get(5).unwrap().as_i64().unwrap();
+                    match firstc {
+                        Some(firstc) => {
+                            let firstc_unwrapped = firstc.as_bytes();
+                            println!(
+                                "cmdline_show: content: {:?}, pos: {:?}, firstc: {:?}, prompt: {:?}, indent: {:?}, level: {:?}",
+                                content, pos, firstc_unwrapped, prompt, indent, level
+                            );
+                        }
+                        None => {
+                            let firstc_value = event_arg_unwrapped.get(2).unwrap();
+                            panic!(
+                                "ERR!!! cmdline_show: content: {:?}, pos: {:?}, firstc_value: {:?}, prompt: {:?}, indent: {:?}, level: {:?}",
+                                content, pos, firstc_value, prompt, indent, level
+                            );
+                        }
+                    }
+                        
+                }
+            }
+        }
     }
 }
 
